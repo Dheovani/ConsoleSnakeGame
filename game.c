@@ -14,7 +14,7 @@ typedef int bool;
 
 // Player variables
 struct node {
-    int x, y, dir, maxSize;
+    int x, y, maxSize;
     struct node* node;
     char dir;
 };
