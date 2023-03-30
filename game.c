@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <Windows.h>
+#include <math.h>
 
 #define ARROW_UP 72
 #define ARROW_LEFT 75
@@ -14,7 +15,8 @@ typedef int bool;
 
 // Player variables
 struct node {
-    int x, y, maxSize;
+    int x: 5;
+    int y: 5;
     struct node* node;
     char dir;
 };
@@ -25,10 +27,11 @@ struct food {
 };
 
 int cColumns, cRows;
-bool EXIT = FALSE;
+bool GAME_OVER = FALSE;
 
 /**
  * Returns pressed key
+ * @return int
  */
 int get_pressed_key() {
     // First value will be '224' to represent an arrow button
@@ -49,9 +52,14 @@ void set_console_size() {
 
 /**
  * Check if collision happened with 1 of the snake's nodes
+ * @param struct node* node
+ * @param int x
+ * @param int y
+ * @return bool
  */
 bool check_collision_with_nodes(struct node* node, int x, int y) {
     if (node->node && check_collision_with_nodes(node->node, x, y)) {
+        printf("You've hit yourself");
         return TRUE;
     }
 
@@ -60,67 +68,224 @@ bool check_collision_with_nodes(struct node* node, int x, int y) {
 
 /**
  * Generate location for food in the map
+ * @param struct food* food
  */
 void set_food_in_map(struct food* food) {
+    if (!cRows && !cColumns) {
+        set_console_size();
+    }
     srand(time(NULL));
 
     food->x = rand() % cColumns + 10;
     food->y = rand() % cRows + 10;
+
+    HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hout == INVALID_HANDLE_VALUE) {
+        exit(EXIT_FAILURE);
+    }
+
+    DWORD dwWritten = 0;
+    COORD cursor = {food->x, food->y};
+    const char cs[] = "o";
+    WriteConsoleOutputCharacter(hout, cs, strlen(cs), cursor, &dwWritten);
 }
 
 /**
  * After every movement, we check collisions and :
- * 
  * -> End the game if the user hit something
- * 
  * -> Update the snake if the user ate the food
+ * 
+ * @param struct node* snake
+ * @param struct food* food
  */
 void deal_with_collision(struct node* snake, struct food* food) {
     // Collided with console's limits
-    if (snake->x == cColumns || snake->y == cRows || check_collision_with_nodes(snake, snake->x, snake->y)) {
-        EXIT = TRUE;
+    if (snake->x == cColumns || snake->y == cRows || !snake->x || !snake->y) {
+        GAME_OVER = TRUE;
+        printf("You lose!");
         return;
     }
 
+    // Collided with it's own body
+    if (snake->node) {
+        int headX = snake->x;
+        int headY = snake->y;
+
+        if (check_collision_with_nodes(snake, headX, headY)) {
+            GAME_OVER = TRUE;
+            printf("You lose!");
+            return;
+        }
+    }
+
+    // Found food
     if (snake->x == food->x && snake->y == food->y) {
-        set_food_in_map(food);
-        
         struct node newNode;
         newNode.x = snake->dir == 'x' ? snake->x - 1 : snake->x;
         newNode.y = snake->dir == 'y' ? snake->y - 1 : snake->y;
+        newNode.node = NULL;
 
         snake->node = &newNode;
+        set_food_in_map(food);
+        
         return;
+    }
+}
+
+/**
+ * Draw snake nodes in the map
+ * @param struct node* node
+ */
+void draw_node(struct node* node, char symbol[]) {
+    HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hout == INVALID_HANDLE_VALUE) {
+        exit(EXIT_FAILURE);
+    }
+
+    DWORD dwWritten = 0;
+    COORD cursor = {node->x, node->y};
+    WriteConsoleOutputCharacter(hout, symbol, strlen(symbol), cursor, &dwWritten);
+}
+
+/**
+ * Update the position of the childrens of head-node when head-node moves
+ * @param struct node* snake
+ * @param int x
+ * @param int y
+ * @param char dir
+ */
+void update_snake_node_position(struct node* snake, int x, int y, char dir) {
+    int oldX = snake->x, oldY = snake->y;
+    char oldDir = snake->dir;
+
+    snake->x = x;
+    snake->y = y;
+    snake->dir = dir;
+
+    // Draw body
+    draw_node(snake, "@");
+
+    if (snake->node) {
+        update_snake_node_position(snake->node, oldX, oldY, oldDir);
+    }
+}
+
+/**
+ * C hates me and it keeps turning my snake's x into a negative number for no reason
+ * @param struct node* snake
+ */
+void assert_positive(struct node* snake) {
+    if (snake->y < 0) {
+        snake->y = (snake->y * -1);
+    }
+
+    if (snake->x < 0) {
+        snake->x = (snake->x * -1);
     }
 }
 
 /**
  * Moves the snake in the map
+ * @param struct node* snake
+ * @param int key
  */
 void move_snake(struct node* snake, int key) {
+    // Clean old head position
+    draw_node(snake, " ");
+
+    int x = snake->x, y = snake->y;
+    char dir = snake->dir;
+
     switch (key) {
         case ARROW_UP:
-            snake->y += 1;
+            snake->y = snake->y + 1;
+            snake->dir = 'y';
             break;
 
         case ARROW_DOWN:
-            snake->y -= 1;
+            snake->y = snake->y - 1;
+            snake->dir = 'y';
             break;
 
         case ARROW_LEFT:
-            snake->x -= 1;
+            snake->x = snake->x - 1;
+            snake->dir = 'x';
             break;
 
         case ARROW_RIGHT:
-            snake->x += 1;
+            snake->x = snake->x + 1;
+            snake->dir = 'x';
             break;
+    }
+
+    // Gotta make sure the positions are positive
+    assert_positive(snake);
+
+    // Draw head
+    draw_node(snake, "O");
+
+    // Update other node's positions
+    if (snake->node) {
+        update_snake_node_position(snake->node, x, y, dir);
     }
 }
 
-// Método para construir a tela
+/**
+ * Print game board
+ */
+void print_board() {
+    if (!cRows && !cColumns) {
+        set_console_size();
+    }
 
-// Método para iniciar o jogo
+    int x, y;
+    for (x = 0; x < cColumns; x ++) {
+        printf("X");
+    }
+
+    for (y = cRows - 1; y > 2; y --) {
+        printf("X");
+
+        for (x = 0; x < cColumns -2; x ++) {
+            printf(" ");
+        }
+
+        printf("X\n");
+    }
+
+    for (x = 0; x < cColumns; x ++) {
+        printf("X");
+    }
+}
+
+/**
+ * Initialize game
+ */
+void game() {
+    struct node snake;
+    snake.x = 5;
+    snake.y = 5;
+    snake.node = NULL;
+    snake.dir = 'x';
+
+    struct food food;
+
+    struct node* snake_pt = &snake;
+    struct food* food_pt = &food;
+
+    set_console_size();
+    print_board();
+    set_food_in_map(food_pt);
+    draw_node(snake_pt, "O");
+
+    int move_to = ARROW_RIGHT;
+    while (!GAME_OVER) {
+        move_snake(snake_pt, move_to);
+        deal_with_collision(snake_pt, food_pt);
+    }
+}
 
 int main() {
+    game();
     return 0;
 }
