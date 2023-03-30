@@ -15,10 +15,8 @@ typedef int bool;
 
 // Player variables
 struct node {
-    int x: 5;
-    int y: 5;
+    int x, y;
     struct node* node;
-    char dir;
 };
 
 // Game variables
@@ -121,8 +119,8 @@ void deal_with_collision(struct node* snake, struct food* food) {
     // Found food
     if (snake->x == food->x && snake->y == food->y) {
         struct node newNode;
-        newNode.x = snake->dir == 'x' ? snake->x - 1 : snake->x;
-        newNode.y = snake->dir == 'y' ? snake->y - 1 : snake->y;
+        newNode.x = snake->x;
+        newNode.y = snake->y;
         newNode.node = NULL;
 
         snake->node = &newNode;
@@ -154,23 +152,20 @@ void draw_node(int x, int y, char symbol[]) {
  * @param struct node* snake
  * @param int x
  * @param int y
- * @param char dir
  */
-void update_snake_node_position(struct node* snake, int x, int y, char dir) {
+void update_snake_node_position(struct node* snake, int x, int y) {
     int oldX = snake->x, oldY = snake->y;
-    char oldDir = snake->dir;
 
     snake->x = x;
     snake->y = y;
-    snake->dir = dir;
 
     // Draw body
     draw_node(snake->x, snake->y, "@");
 
     if (snake->node) {
-        update_snake_node_position(snake->node, oldX, oldY, oldDir);
+        update_snake_node_position(snake->node, oldX, oldY);
     } else {
-        // Clean old head position
+        // Clean old node position
         draw_node(oldX, oldY, " ");
     }
 }
@@ -182,27 +177,22 @@ void update_snake_node_position(struct node* snake, int x, int y, char dir) {
  */
 void move_snake(struct node* snake, int key) {
     int x = snake->x, y = snake->y;
-    char dir = snake->dir;
 
     switch (key) {
         case ARROW_UP:
             snake->y = snake->y - 1;
-            snake->dir = 'y';
             break;
 
         case ARROW_DOWN:
             snake->y = snake->y + 1;
-            snake->dir = 'y';
             break;
 
         case ARROW_LEFT:
             snake->x = snake->x - 1;
-            snake->dir = 'x';
             break;
 
         case ARROW_RIGHT:
             snake->x = snake->x + 1;
-            snake->dir = 'x';
             break;
     }
 
@@ -211,7 +201,7 @@ void move_snake(struct node* snake, int key) {
 
     // Update other node's positions
     if (snake->node) {
-        update_snake_node_position(snake->node, x, y, dir);
+        update_snake_node_position(snake->node, x, y);
     } else {
         // Clean old head position
         draw_node(x, y, " ");
@@ -254,7 +244,6 @@ void game() {
     snake.x = 5;
     snake.y = 5;
     snake.node = NULL;
-    snake.dir = 'x';
 
     struct food food;
 
