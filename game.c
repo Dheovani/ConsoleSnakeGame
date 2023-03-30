@@ -134,16 +134,18 @@ void deal_with_collision(struct node* snake, struct food* food) {
 
 /**
  * Draw snake nodes in the map
- * @param struct node* node
+ * @param int x
+ * @param int y
+ * @param char symbol[]
  */
-void draw_node(struct node* node, char symbol[]) {
+void draw_node(int x, int y, char symbol[]) {
     HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hout == INVALID_HANDLE_VALUE) {
         exit(EXIT_FAILURE);
     }
 
     DWORD dwWritten = 0;
-    COORD cursor = {node->x, node->y};
+    COORD cursor = {x, y};
     WriteConsoleOutputCharacter(hout, symbol, strlen(symbol), cursor, &dwWritten);
 }
 
@@ -163,24 +165,13 @@ void update_snake_node_position(struct node* snake, int x, int y, char dir) {
     snake->dir = dir;
 
     // Draw body
-    draw_node(snake, "@");
+    draw_node(snake->x, snake->y, "@");
 
     if (snake->node) {
         update_snake_node_position(snake->node, oldX, oldY, oldDir);
-    }
-}
-
-/**
- * C hates me and it keeps turning my snake's x into a negative number for no reason
- * @param struct node* snake
- */
-void assert_positive(struct node* snake) {
-    if (snake->y < 0) {
-        snake->y = (snake->y * -1);
-    }
-
-    if (snake->x < 0) {
-        snake->x = (snake->x * -1);
+    } else {
+        // Clean old head position
+        draw_node(oldX, oldY, " ");
     }
 }
 
@@ -190,20 +181,17 @@ void assert_positive(struct node* snake) {
  * @param int key
  */
 void move_snake(struct node* snake, int key) {
-    // Clean old head position
-    draw_node(snake, " ");
-
     int x = snake->x, y = snake->y;
     char dir = snake->dir;
 
     switch (key) {
         case ARROW_UP:
-            snake->y = snake->y + 1;
+            snake->y = snake->y - 1;
             snake->dir = 'y';
             break;
 
         case ARROW_DOWN:
-            snake->y = snake->y - 1;
+            snake->y = snake->y + 1;
             snake->dir = 'y';
             break;
 
@@ -218,15 +206,15 @@ void move_snake(struct node* snake, int key) {
             break;
     }
 
-    // Gotta make sure the positions are positive
-    assert_positive(snake);
-
     // Draw head
-    draw_node(snake, "O");
+    draw_node(snake->x, snake->y, "O");
 
     // Update other node's positions
     if (snake->node) {
         update_snake_node_position(snake->node, x, y, dir);
+    } else {
+        // Clean old head position
+        draw_node(x, y, " ");
     }
 }
 
@@ -273,15 +261,26 @@ void game() {
     struct node* snake_pt = &snake;
     struct food* food_pt = &food;
 
+    // Initialize board
     set_console_size();
     print_board();
-    set_food_in_map(food_pt);
-    draw_node(snake_pt, "O");
 
-    int move_to = ARROW_RIGHT;
+    // Generate food
+    set_food_in_map(food_pt);
+
+    // Snake head
+    draw_node(snake_pt->x, snake_pt->y, "O");
+
+    int key = ARROW_RIGHT;
     while (!GAME_OVER) {
-        move_snake(snake_pt, move_to);
+        // Change direction
+        if (_kbhit()) {
+            key = get_pressed_key();
+        }
+
+        move_snake(snake_pt, key);
         deal_with_collision(snake_pt, food_pt);
+        _sleep(50);
     }
 }
 
