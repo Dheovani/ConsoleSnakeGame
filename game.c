@@ -15,7 +15,7 @@ typedef int bool;
 
 // Player variables
 struct node {
-    int x, y;
+    int x, y, size;
     struct node* node;
 };
 
@@ -24,7 +24,7 @@ struct food {
     int x, y;
 };
 
-int cColumns, cRows;
+int cColumns, cRows, maxSize;
 bool GAME_OVER = FALSE;
 
 /**
@@ -46,6 +46,7 @@ void set_console_size() {
     GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
     cColumns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
     cRows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+    maxSize = cColumns * cRows;
 }
 
 /**
@@ -57,11 +58,26 @@ void set_console_size() {
  */
 bool check_collision_with_nodes(struct node* node, int x, int y) {
     if (node->node && check_collision_with_nodes(node->node, x, y)) {
-        printf("You've hit yourself");
         return TRUE;
     }
 
     return node->x == x && node->y == y;
+}
+
+/**
+ * Generates a random number given a limit
+ * @param int limit
+ * @return int
+ */
+int get_random_number(int limit) {
+    srand(time(NULL));
+
+    int num = 0;
+    while (num <= 0 || num >= limit) {
+        num = 1 + (rand() % (limit - 1));
+    }
+
+    return num;
 }
 
 /**
@@ -72,10 +88,9 @@ void set_food_in_map(struct food* food) {
     if (!cRows && !cColumns) {
         set_console_size();
     }
-    srand(time(NULL));
 
-    food->x = rand() % cColumns + 10;
-    food->y = rand() % cRows + 10;
+    food->x = get_random_number(cColumns);
+    food->y = get_random_number(cRows);
 
     HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hout == INVALID_HANDLE_VALUE) {
@@ -89,6 +104,23 @@ void set_food_in_map(struct food* food) {
 }
 
 /**
+ * Draw n the map
+ * @param int x
+ * @param int y
+ * @param char symbol[]
+ */
+void draw_in_map(int x, int y, char symbol[]) {
+    HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hout == INVALID_HANDLE_VALUE) {
+        exit(EXIT_FAILURE);
+    }
+
+    DWORD dwWritten = 0;
+    COORD cursor = {x, y};
+    WriteConsoleOutputCharacter(hout, symbol, strlen(symbol), cursor, &dwWritten);
+}
+
+/**
  * After every movement, we check collisions and :
  * -> End the game if the user hit something
  * -> Update the snake if the user ate the food
@@ -98,9 +130,27 @@ void set_food_in_map(struct food* food) {
  */
 void deal_with_collision(struct node* snake, struct food* food) {
     // Collided with console's limits
-    if (snake->x == cColumns || snake->y == cRows || !snake->x || !snake->y) {
-        GAME_OVER = TRUE;
-        printf("You lose!");
+    if (snake->y == cRows || !snake->y) {
+        draw_in_map(snake->x, snake->y, " ");
+
+        if (!snake->y) {
+            snake->y = cRows;
+        } else {
+            snake->y = 0;
+        }
+
+        return;
+    }
+
+    if (snake->x == cColumns || !snake->x) {
+        draw_in_map(snake->x, snake->y, " ");
+
+        if (!snake->x) {
+            snake->x = cColumns;
+        } else {
+            snake->x = 0;
+        }
+
         return;
     }
 
@@ -111,7 +161,6 @@ void deal_with_collision(struct node* snake, struct food* food) {
 
         if (check_collision_with_nodes(snake, headX, headY)) {
             GAME_OVER = TRUE;
-            printf("You lose!");
             return;
         }
     }
@@ -124,27 +173,11 @@ void deal_with_collision(struct node* snake, struct food* food) {
         newNode.node = NULL;
 
         snake->node = &newNode;
+        snake->size = snake->size + 1;
         set_food_in_map(food);
         
         return;
     }
-}
-
-/**
- * Draw snake nodes in the map
- * @param int x
- * @param int y
- * @param char symbol[]
- */
-void draw_node(int x, int y, char symbol[]) {
-    HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hout == INVALID_HANDLE_VALUE) {
-        exit(EXIT_FAILURE);
-    }
-
-    DWORD dwWritten = 0;
-    COORD cursor = {x, y};
-    WriteConsoleOutputCharacter(hout, symbol, strlen(symbol), cursor, &dwWritten);
 }
 
 /**
@@ -160,13 +193,13 @@ void update_snake_node_position(struct node* snake, int x, int y) {
     snake->y = y;
 
     // Draw body
-    draw_node(snake->x, snake->y, "@");
+    draw_in_map(snake->x, snake->y, "@");
 
     if (snake->node) {
         update_snake_node_position(snake->node, oldX, oldY);
     } else {
         // Clean old node position
-        draw_node(oldX, oldY, " ");
+        draw_in_map(oldX, oldY, " ");
     }
 }
 
@@ -197,42 +230,29 @@ void move_snake(struct node* snake, int key) {
     }
 
     // Draw head
-    draw_node(snake->x, snake->y, "O");
+    draw_in_map(snake->x, snake->y, "O");
 
     // Update other node's positions
     if (snake->node) {
         update_snake_node_position(snake->node, x, y);
     } else {
         // Clean old head position
-        draw_node(x, y, " ");
+        draw_in_map(x, y, " ");
     }
 }
 
 /**
- * Print game board
+ * Game over!
+ * @param struct node* snake
  */
-void print_board() {
-    if (!cRows && !cColumns) {
-        set_console_size();
-    }
+void end_game(struct node* snake) {
+    // Clean console
+    system("cls");
 
-    int x, y;
-    for (x = 0; x < cColumns; x ++) {
-        printf("X");
-    }
-
-    for (y = cRows - 1; y > 2; y --) {
-        printf("X");
-
-        for (x = 0; x < cColumns -2; x ++) {
-            printf(" ");
-        }
-
-        printf("X\n");
-    }
-
-    for (x = 0; x < cColumns; x ++) {
-        printf("X");
+    if (snake->size == maxSize) {
+        printf("Congratulations! You win!\n");
+    } else {
+        printf("You lose!\n");
     }
 }
 
@@ -243,6 +263,7 @@ void game() {
     struct node snake;
     snake.x = 5;
     snake.y = 5;
+    snake.size = 1;
     snake.node = NULL;
 
     struct food food;
@@ -250,15 +271,9 @@ void game() {
     struct node* snake_pt = &snake;
     struct food* food_pt = &food;
 
-    // Initialize board
     set_console_size();
-    print_board();
-
-    // Generate food
     set_food_in_map(food_pt);
-
-    // Snake head
-    draw_node(snake_pt->x, snake_pt->y, "O");
+    draw_in_map(snake_pt->x, snake_pt->y, "O");
 
     int key = ARROW_RIGHT;
     while (!GAME_OVER) {
@@ -271,6 +286,8 @@ void game() {
         deal_with_collision(snake_pt, food_pt);
         _sleep(50);
     }
+
+    end_game(snake_pt);
 }
 
 int main() {
