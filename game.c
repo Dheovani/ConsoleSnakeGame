@@ -17,6 +17,7 @@ typedef int bool;
 struct node {
     int x, y, size;
     struct node* node;
+    char dir;
 };
 
 // Game variables
@@ -121,6 +122,20 @@ void draw_in_map(int x, int y, char symbol[]) {
 }
 
 /**
+ * Will use this method to always update the last node of the snake
+ * @param struct node* snake
+ * @param struct node* node
+ */
+void update_last_node_value(struct node* snake, struct node* node) {
+    if (snake->node) {
+        update_last_node_value(snake->node, node);
+        return;
+    }
+
+    snake->node = node;
+}
+
+/**
  * After every movement, we check collisions and :
  * -> End the game if the user hit something
  * -> Update the snake if the user ate the food
@@ -129,7 +144,6 @@ void draw_in_map(int x, int y, char symbol[]) {
  * @param struct food* food
  */
 void deal_with_collision(struct node* snake, struct food* food) {
-    // Collided with console's limits
     if (snake->y == cRows || !snake->y) {
         draw_in_map(snake->x, snake->y, " ");
 
@@ -154,12 +168,9 @@ void deal_with_collision(struct node* snake, struct food* food) {
         return;
     }
 
-    // Collided with it's own body
     if (snake->node) {
-        int headX = snake->x;
-        int headY = snake->y;
-
-        if (check_collision_with_nodes(snake, headX, headY)) {
+        // -1 because head can't collide with itself
+        if (check_collision_with_nodes(snake->node, snake->x, snake->y)) {
             GAME_OVER = TRUE;
             return;
         }
@@ -167,13 +178,15 @@ void deal_with_collision(struct node* snake, struct food* food) {
 
     // Found food
     if (snake->x == food->x && snake->y == food->y) {
-        struct node newNode;
-        newNode.x = snake->x;
-        newNode.y = snake->y;
-        newNode.node = NULL;
+        struct node node;
+        struct node* node_pt = malloc(sizeof(node));
 
-        snake->node = &newNode;
+        node_pt->x = snake->dir == 'x' ? snake->x - 1 : snake->x;
+        node_pt->y = snake->dir == 'y' ? snake->y - 1 : snake->y;
+        node_pt->node = NULL;
+
         snake->size = snake->size + 1;
+        update_last_node_value(snake, node_pt);
         set_food_in_map(food);
         
         return;
@@ -214,18 +227,22 @@ void move_snake(struct node* snake, int key) {
     switch (key) {
         case ARROW_UP:
             snake->y = snake->y - 1;
+            snake->dir = 'y';
             break;
 
         case ARROW_DOWN:
             snake->y = snake->y + 1;
+            snake->dir = 'y';
             break;
 
         case ARROW_LEFT:
             snake->x = snake->x - 1;
+            snake->dir = 'x';
             break;
 
         case ARROW_RIGHT:
             snake->x = snake->x + 1;
+            snake->dir = 'x';
             break;
     }
 
@@ -260,16 +277,16 @@ void end_game(struct node* snake) {
  * Initialize game
  */
 void game() {
-    struct node snake;
-    snake.x = 5;
-    snake.y = 5;
-    snake.size = 1;
-    snake.node = NULL;
-
     struct food food;
+    struct node snake;
 
-    struct node* snake_pt = &snake;
-    struct food* food_pt = &food;
+    struct node* snake_pt = malloc(sizeof(snake));
+    snake_pt->x = 5;
+    snake_pt->y = 5;
+    snake_pt->size = 1;
+    snake_pt->node = NULL;
+
+    struct food* food_pt = malloc(sizeof(food));
 
     set_console_size();
     set_food_in_map(food_pt);
