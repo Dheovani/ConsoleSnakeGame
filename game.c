@@ -168,12 +168,9 @@ void deal_with_collision(struct node* snake, struct food* food) {
         return;
     }
 
-    if (snake->node) {
-        // -1 because head can't collide with itself
-        if (check_collision_with_nodes(snake->node, snake->x, snake->y)) {
-            GAME_OVER = TRUE;
-            return;
-        }
+    if (snake->node && check_collision_with_nodes(snake->node, snake->x, snake->y)) {
+        GAME_OVER = TRUE;
+        return;
     }
 
     // Found food
@@ -187,6 +184,12 @@ void deal_with_collision(struct node* snake, struct food* food) {
 
         snake->size = snake->size + 1;
         update_last_node_value(snake, node_pt);
+
+        if (snake->size == maxSize) {
+            GAME_OVER = TRUE;
+            return;
+        }
+
         set_food_in_map(food);
         
         return;
@@ -274,6 +277,19 @@ void end_game(struct node* snake) {
 }
 
 /**
+ * Delete all node of the snake
+ * @param struct node* snake
+ */
+void delete_nodes(struct node* snake) {
+    if (snake->node) {
+        delete_nodes(snake->node);
+    }
+
+    free(snake);
+    snake = NULL;
+}
+
+/**
  * Initialize game
  */
 void game() {
@@ -305,6 +321,10 @@ void game() {
     }
 
     end_game(snake_pt);
+
+    free(food_pt);
+    food_pt = NULL;
+    delete_nodes(snake_pt);
 }
 
 int main() {

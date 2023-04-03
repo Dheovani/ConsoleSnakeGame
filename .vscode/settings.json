@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "sysinfoapi.h": "c",
-        "stat.h": "c"
+        "stat.h": "c",
+        "windows.h": "c"
     }
 }
