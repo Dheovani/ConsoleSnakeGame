@@ -1,6 +1,6 @@
 ﻿# Snake Game in C
 
-![Gameplay](https://github.com/Dheovani/ConsoleSnakeGame/assets/79609196/dcdcbe99-dc07-4ce6-8aef-a39b3c902bac)
+[Gameplay](https://github.com/Dheovani/ConsoleSnakeGame/assets/79609196/dcdcbe99-dc07-4ce6-8aef-a39b3c902bac)
 
 This is a classic Snake game implemented in C. It's a simple yet entertaining console-based game where the player controls a snake that grows longer as it consumes food.
 
