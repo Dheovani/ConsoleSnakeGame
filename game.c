@@ -46,7 +46,10 @@ int get_pressed_key()
  */
 void set_console_size()
 {
-    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+    HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
+    GetConsoleScreenBufferInfo(hout, &csbi);
+    SetConsoleTextAttribute(hout, FOREGROUND_GREEN);
+
     cColumns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
     cRows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
     maxSize = cColumns * cRows;
@@ -97,7 +100,7 @@ void set_food_in_map(Food* food)
 
     // X needs to be even
     if (food->x % 2 != 0)
-        food->x = food->x * 2;
+        food->x += 1;
 
     HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
 
@@ -124,10 +127,10 @@ void draw_map_limits()
     for (int c = 5; c < cColumns - 5; c++)
     {
         COORD top = { c, wd.Bottom - 5 };
-        WriteConsoleOutputCharacter(hout, "--", (DWORD)strlen("--"), top, &dwWritten);
+        WriteConsoleOutputCharacter(hout, "--", (DWORD) strlen("--"), top, &dwWritten);
 
         COORD bottom = { c, wd.Top + 5 };
-        WriteConsoleOutputCharacter(hout, "--", (DWORD)strlen("--"), bottom, &dwWritten);
+        WriteConsoleOutputCharacter(hout, "--", (DWORD) strlen("--"), bottom, &dwWritten);
     }
 
     for (int r = 5; r < cRows - 5; r++)
